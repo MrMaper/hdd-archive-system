@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>مدیریت آرشیو هاردها</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+  </head>
+  <body>
+    <!-- Header -->
+    <div class="header">
+      <h1><i class="fas fa-server icon"></i> مدیریت آرشیو هاردها</h1>
+      <div class="stats-bar">
+        <span
+          ><i class="fas fa-compact-disc"></i> هاردها:
+          <span class="val stat-ltr" id="driveCount">0</span></span
+        >
+        <span
+          ><i class="fas fa-hdd"></i> حجم کل:
+          <span class="val stat-ltr" id="totalSize">0</span></span
+        >
+        <span
+          ><i class="fas fa-folder"></i> فایل‌ها:
+          <span class="val stat-ltr" id="totalFiles">0</span></span
+        >
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button
+        class="tab active"
+        data-tab="drives"
+        onclick="switchTab('drives')"
+      >
+        <i class="fas fa-list"></i> هاردها
+      </button>
+      <button class="tab" data-tab="scan" onclick="switchTab('scan')">
+        <i class="fas fa-microchip"></i> اسکن جدید
+      </button>
+      <button class="tab" data-tab="search" onclick="switchTab('search')">
+        <i class="fas fa-search"></i> جستجو
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Panel: Drives -->
+      <div class="panel active" id="drivesPanel">
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+          "
+        >
+          <button
+            class="btn outline small"
+            onclick="rebuildIndex()"
+            id="rebuildBtn"
+            title="فقط پوشه‌ها رو ایندکس میکنه (بدون اسکن مجدد). برای جستجوی بهتر لازمه."
+          >
+            <i class="fas fa-sync"></i> بازسازی ایندکس پوشه‌ها
+          </button>
+          <span style="font-size: 0.78rem; color: var(--text2)"
+            >جهت افزایش دقت جستجو، ایندکس پوشه‌ها را بازسازی کنید.</span
+          >
+        </div>
+        <div id="drivesList">
+          <div class="progress active">
+            <div class="spinner"></div>
+            <p>در حال بارگذاری...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel: Scan -->
+      <div class="panel" id="scanPanel">
+        <div class="card" style="margin-bottom: 16px">
+          <h3><i class="fas fa-microchip"></i> اسکن هارد جدید</h3>
+          <p style="color: var(--text2); margin-bottom: 12px">
+            درایوهای متصل به سیستم در زیر نمایش داده می‌شوند. یک یا چند درایو را
+            انتخاب کن و یکی از حالت‌های اسکن را بزن:
+          </p>
+
+          <div id="availabilityInfo">
+            <div class="spinner" style="margin: 0"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div
+            style="
+              display: flex;
+              gap: 10px;
+              flex-wrap: wrap;
+              margin-bottom: 12px;
+            "
+          >
+            <input
+              type="text"
+              id="scanLabelInput"
+              placeholder="نام/برچسب دلخواه برای این اسکن (اختیاری)"
+              style="
+                flex: 1;
+                min-width: 200px;
+                padding: 10px 14px;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                font-size: 15px;
+                font-family: inherit;
+                background: var(--bg2);
+                color: var(--text);
+                direction: rtl;
+              "
+            />
+            <button
+              class="btn primary"
+              id="scanStartBtn"
+              onclick="startScan('deep')"
+              title="همه فایل‌ها و زیرپوشه‌ها را می‌شمارد — زمان‌بر اما دقیق"
+              disabled
+            >
+              <i class="fas fa-microscope"></i> اسکن عمیق (دقیق — کند)
+            </button>
+            <button
+              class="btn outline"
+              id="scanQuickBtn"
+              onclick="startScan('quick')"
+              title="فقط پوشه‌های سطح اول و فایل‌های درون آن‌ها — چند ثانیه طول می‌کشد"
+              disabled
+            >
+              <i class="fas fa-bolt"></i> اسکن سریع (فهرست وار)
+            </button>
+            <button
+              class="btn danger"
+              id="scanCancelBtn"
+              onclick="cancelScan()"
+              style="display: none"
+            >
+              <i class="fas fa-times"></i> توقف
+            </button>
+          </div>
+
+          <div class="progress" id="scanProgress" style="text-align: right">
+            <p id="scanStatus" style="margin-bottom: 10px">در حال اسکن...</p>
+            <div
+              style="
+                background: var(--border);
+                border-radius: 6px;
+                height: 10px;
+                overflow: hidden;
+                margin-bottom: 6px;
+              "
+            >
+              <div
+                id="scanBarFill"
+                style="
+                  height: 100%;
+                  width: 0%;
+                  background: linear-gradient(
+                    90deg,
+                    var(--accent),
+                    var(--accent2)
+                  );
+                  border-radius: 6px;
+                  transition: width 0.4s ease;
+                "
+              ></div>
+            </div>
+            <span
+              id="scanPct"
+              style="
+                font-size: 0.85rem;
+                color: var(--accent2);
+                font-weight: 700;
+              "
+              >0%</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel: Search -->
+      <div class="panel" id="searchPanel">
+        <div class="search-box">
+          <span class="search-icon"><i class="fas fa-search"></i></span>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="جستجو در عنوان، برچسب، Volume، پوشه‌ها و فایل‌ها..."
+            oninput="onSearchInput(this)"
+          />
+        </div>
+        <div id="searchResults">
+          <div class="empty-state">
+            <div class="icon"><i class="fas fa-search fa-3x"></i></div>
+            <p>برای جستجو، عبارت مورد نظرت رو تایپ کن</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer credit (sticky bottom) -->
+    <div class="footer-credit">
+      توسعه داده شده با <i class="fas fa-heart" style="color: #e74c3c"></i> توسط
+      <strong>MrMaper</strong>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/utils.js?v=2"></script>
+    <script src="/static/js/drives.js"></script>
+    <script src="/static/js/scan.js"></script>
+    <script src="/static/js/search.js"></script>
+    <script src="/static/js/label.js"></script>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>

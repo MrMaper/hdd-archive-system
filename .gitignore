@@ -1,0 +1,42 @@
+# ========================
+# HDD Archive System .gitignore
+# ========================
+
+# --- Sensitive / User-specific data ---
+catalog.json
+labels/*.txt
+file_index/*.json
+folder_index/*.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Obsolete / unused files (won't be tracked) ---
+CONTEXT.md
+*.ps1
+ui.html
+static/test_scan.html
+_gh_setup.py
+_set_desc.py
+
+# --- Environment ---
+.env
+venv/
+.venv/
