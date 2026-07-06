@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- گرادیانت پس‌زمینه لوگو -->
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6B21A8"/> <!-- بنفش عمیق -->
+      <stop offset="100%" stop-color="#3B82F6"/> <!-- آبی روشن -->
+    </linearGradient>
+    
+    <!-- دراپ‌شدو برای حجم دادن به هاردها -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- پس‌زمینه اصلی (شکل اپلیکیشن) -->
+  <rect x="32" y="32" width="448" height="448" rx="110" fill="url(#bg-gradient)"/>
+
+  <!-- هارد درایو اول (بالا) -->
+  <rect x="116" y="136" width="280" height="64" rx="16" fill="#1a1a2e" filter="url(#shadow)"/>
+  <line x1="150" y1="168" x2="260" y2="168" stroke="#4B5563" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="350" cy="168" r="8" fill="#10B981"/> <!-- چراغ سبز (سالم) -->
+
+  <!-- هارد درایو دوم (وسط) -->
+  <rect x="116" y="224" width="280" height="64" rx="16" fill="#1a1a2e" filter="url(#shadow)"/>
+  <line x1="150" y1="256" x2="260" y2="256" stroke="#4B5563" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="350" cy="256" r="8" fill="#10B981"/> <!-- چراغ سبز (سالم) -->
+
+  <!-- هارد درایو سوم (پایین) -->
+  <rect x="116" y="312" width="280" height="64" rx="16" fill="#1a1a2e" filter="url(#shadow)"/>
+  <line x1="150" y1="344" x2="260" y2="344" stroke="#4B5563" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="350" cy="344" r="8" fill="#F59E0B"/> <!-- چراغ نارنجی (در حال پردازش/اسکن) -->
+</svg>

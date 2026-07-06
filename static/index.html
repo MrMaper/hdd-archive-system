@@ -4,11 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>مدیریت آرشیو هاردها</title>
+    <link rel="icon" href="/static/Favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/css/style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
     />
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
   </head>
   <body>
     <!-- Header -->
@@ -44,6 +46,16 @@
       </button>
       <button class="tab" data-tab="search" onclick="switchTab('search')">
         <i class="fas fa-search"></i> جستجو
+      </button>
+      <button
+        class="tab"
+        data-tab="duplicates"
+        onclick="switchTab('duplicates')"
+      >
+        <i class="fas fa-copy"></i> فایل‌های تکراری
+      </button>
+      <button class="tab" data-tab="analytics" onclick="switchTab('analytics')">
+        <i class="fas fa-chart-pie"></i> آنالیز فضا
       </button>
     </div>
 
@@ -205,6 +217,77 @@
           </div>
         </div>
       </div>
+      <!-- Panel: Duplicates -->
+      <div class="panel" id="duplicatesPanel">
+        <div class="duplicates-header">
+          <h3><i class="fas fa-copy"></i> فایل‌های تکراری</h3>
+          <button
+            class="btn primary"
+            onclick="loadDuplicates()"
+            id="duplicatesRefreshBtn"
+          >
+            <i class="fas fa-sync"></i> جستجوی تکراری‌ها
+          </button>
+        </div>
+        <div class="duplicates-toolbar">
+          <div class="dup-search-wrap">
+            <i class="fas fa-search dup-search-icon"></i>
+            <input
+              type="text"
+              id="dupSearchInput"
+              placeholder="جستجو در نام یا مسیر فایل..."
+              oninput="filterDuplicates()"
+            />
+          </div>
+          <select id="dupDriveFilter" onchange="filterDuplicates()">
+            <option value="">همه هاردها</option>
+          </select>
+          <select id="dupTypeFilter" onchange="filterDuplicates()">
+            <option value="">همه فایل‌ها</option>
+            <option value="video">ویدیو (mp4, mkv, mov, avi, ...)</option>
+            <option value="image">تصویر (jpg, png, gif, webp, ...)</option>
+            <option value="audio">صوت (mp3, wav, flac, aac, ...)</option>
+            <option value="document">اسناد (pdf, docx, xlsx, pptx, ...)</option>
+          </select>
+          <button
+            class="btn secondary btn-ignored-mgmt"
+            onclick="openIgnoredModal()"
+            title="مدیریت فایل‌هایی که نادیده گرفته شده‌اند"
+          >
+            <i class="fas fa-eye-slash"></i> 👁️ مدیریت نادیده‌گرفته‌شده‌ها
+          </button>
+        </div>
+        <div id="duplicatesContent">
+          <div class="empty-state">
+            <div class="icon"><i class="fas fa-copy fa-3x"></i></div>
+            <p>برای یافتن فایل‌های تکراری، دکمه «جستجوی تکراری‌ها» را بزنید</p>
+          </div>
+        </div>
+      </div>
+      <!-- Panel: Analytics -->
+      <div class="panel" id="analyticsPanel">
+        <div class="analytics-header">
+          <h3><i class="fas fa-chart-pie"></i> آنالیز فضا</h3>
+        </div>
+        <div class="analytics-toolbar">
+          <select id="analyticsDriveFilter">
+            <option value="all">همه درایوها</option>
+          </select>
+          <button
+            class="btn primary"
+            onclick="loadAnalytics()"
+            id="analyticsRefreshBtn"
+          >
+            <i class="fas fa-sync"></i> شروع آنالیز
+          </button>
+        </div>
+        <div id="analyticsContent">
+          <div class="empty-state">
+            <div class="icon"><i class="fas fa-chart-pie fa-3x"></i></div>
+            <p>برای مشاهده آنالیز فضا، دکمه «شروع آنالیز» را بزنید</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Footer credit (sticky bottom) -->
@@ -213,12 +296,41 @@
       <strong>MrMaper</strong>
     </div>
 
+    <!-- Modal: Manage Ignored Duplicates -->
+    <div
+      id="ignoredModalOverlay"
+      class="modal-overlay"
+      onclick="closeIgnoredModal()"
+    ></div>
+    <div id="ignoredModal" class="modal">
+      <div class="modal-header">
+        <h3>
+          <i class="fas fa-eye-slash"></i> مدیریت فایل‌های نادیده‌گرفته‌شده
+        </h3>
+        <button
+          class="modal-close-btn"
+          onclick="closeIgnoredModal()"
+          title="بستن"
+        >
+          ✖️
+        </button>
+      </div>
+      <div class="modal-body" id="ignoredModalBody">
+        <div class="progress active">
+          <div class="spinner"></div>
+          <p>در حال بارگذاری...</p>
+        </div>
+      </div>
+    </div>
+
     <script src="/static/js/api.js"></script>
     <script src="/static/js/utils.js?v=2"></script>
     <script src="/static/js/drives.js"></script>
     <script src="/static/js/scan.js"></script>
     <script src="/static/js/search.js"></script>
     <script src="/static/js/label.js"></script>
+    <script src="/static/js/duplicates.js"></script>
+    <script src="/static/js/analytics.js"></script>
     <script src="/static/js/app.js"></script>
   </body>
 </html>

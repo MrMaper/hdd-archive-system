@@ -28,7 +28,10 @@ async function showLabel(id) {
   if (d.error) { toast(d.error, "error"); return; }
 
   var modal = document.createElement("div");
-  modal.className = "modal-overlay";
+  modal.className = "modal-overlay active";
+  modal.style.display = "flex";
+  modal.style.justifyContent = "center";
+  modal.style.alignItems = "center";
   modal.onclick = function (e) { if (e.target === modal) modal.remove(); };
 
   var jalaliDate = toJalaliNumeric(d.date_added);
@@ -39,7 +42,7 @@ async function showLabel(id) {
   var volDisplay = volumeName ? driveLetter + ": " + volumeName : driveLetter + ":";
 
   // ── HTML ──
-  var html = '<div class="label-modal">';
+  var html = '<div class="label-modal active">';
 
   // Header
   html += '<div class="label-modal-header">';

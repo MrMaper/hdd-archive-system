@@ -166,15 +166,15 @@ async function showDriveDetail(id) {
   }
 
   var jalaliDateTime = toJalaliDateTime(d.date_added);
-  var modal = document.createElement("div");
-  modal.className = "modal-overlay";
+var modal = document.createElement("div");
+  modal.className = "modal-overlay active";
   modal.onclick = function (e) {
     if (e.target === modal) modal.remove();
   };
 
-  var html = '<div class="modal">';
+  var html = '<div class="modal active">';
   html +=
-    '<button class="close-btn" onclick="this.closest(\'.modal-overlay\').remove()"><i class="fas fa-times"></i></button>';
+    '<button class="close-btn" style="position: absolute; top: 15px; left: 15px;" onclick="this.closest(\'.modal-overlay\').remove()"><i class="fas fa-times"></i></button>';
 
   // Title + ID (clickable to copy)
   html += '<div style="margin-bottom:12px;">';
@@ -305,14 +305,14 @@ async function showEditDrive(id) {
 
   var formId = "editForm_" + Date.now();
   var modal = document.createElement("div");
-  modal.className = "modal-overlay";
+  modal.className = "modal-overlay active";
   modal.onclick = function (e) {
     if (e.target === modal) modal.remove();
   };
 
-  var html = '<div class="modal">';
+  var html = '<div class="modal active">';
   html +=
-    '<button class="close-btn" onclick="this.closest(\'.modal-overlay\').remove()"><i class="fas fa-times"></i></button>';
+    '<button class="close-btn" style="position: absolute; top: 15px; left: 15px;" onclick="this.closest(\'.modal-overlay\').remove()"><i class="fas fa-times"></i></button>';
   html += "<h2><i class=\"fas fa-pencil-alt\"></i> ویرایش اطلاعات هارد</h2>";
   html +=
     '<p style="color:var(--accent2);font-family:monospace;font-size:0.8rem;margin-bottom:16px;">' +
@@ -339,10 +339,10 @@ async function showEditDrive(id) {
     '" />';
   html += "</div>";
 
-  html +=
+html +=
     '<button class="btn primary" id="' +
     formId +
-    '_save"><i class="fas fa-save"></i> ذخیره تغییرات</button>';
+    '_save" style="width: max-content; margin-right: auto; display: block;"><i class="fas fa-save"></i> ذخیره تغییرات</button>';
   html += "</div>";
 
   modal.innerHTML = html;

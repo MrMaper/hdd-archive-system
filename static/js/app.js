@@ -51,6 +51,12 @@ function switchTab(tabName) {
   } else if (tabName === "search") {
     document.getElementById("searchInput").value = "";
     document.getElementById("searchResults").innerHTML = "";
+  } else if (tabName === "duplicates") {
+    // Do NOT auto-load — user must click "جستجوی تکراری‌ها" manually
+    populateDriveFilterOnLoad();
+  } else if (tabName === "analytics") {
+    // Populate drive filter dropdown when tab is opened
+    populateAnalyticsDriveFilter();
   }
 }
 
@@ -58,6 +64,10 @@ function switchTab(tabName) {
 document.addEventListener("DOMContentLoaded", function () {
   switchTab("drives");
   loadStats();
+
+  // Populate analytics and duplicates drive filters on initial load
+  populateAnalyticsDriveFilter();
+  populateDriveFilterOnLoad();
 
   // Auto-refresh every few mins
   setInterval(function () {

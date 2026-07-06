@@ -37,6 +37,7 @@ FILE_INDEX_DIR = os.path.join(SCRIPT_DIR, "file_index")
 FOLDER_INDEX_DIR = os.path.join(SCRIPT_DIR, "folder_index")
 UI_FILE = os.path.join(SCRIPT_DIR, "static", "index.html")
 STATIC_DIR = os.path.join(SCRIPT_DIR, "static")
+IGNORE_DUPLICATES_FILE = os.path.join(SCRIPT_DIR, "ignored_duplicates.json")
 DEFAULT_PORT = 8765
 
 # ─── JALALI (SHAMSI) DATE ──────────────────────────────────
@@ -201,6 +202,24 @@ def delete_folder_index(drive_id):
         os.remove(idx_path)
 
 
+# ─── IGNORED DUPLICATES ────────────────────────────────────
+def read_ignored_duplicates():
+    """Read the list of ignored duplicate file groups (by unique key)."""
+    if os.path.exists(IGNORE_DUPLICATES_FILE):
+        try:
+            with open(IGNORE_DUPLICATES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError):
+            return []
+    return []
+
+
+def write_ignored_duplicates(ignored_list):
+    """Save ignored duplicates list to disk."""
+    with open(IGNORE_DUPLICATES_FILE, "w", encoding="utf-8") as f:
+        json.dump(ignored_list, f, ensure_ascii=False, indent=2)
+
+
 # ─── SCAN DRIVE ────────────────────────────────────────────
 def scan_drive(drive_path, title, physical_mark="", quick=False):
     """Scan a drive and add it to the catalog.
@@ -243,72 +262,92 @@ def scan_drive(drive_path, title, physical_mark="", quick=False):
     # Scan folders
     skip_dirs = {"$RECYCLE.BIN", "System Volume Information", "RECYCLER"}
 
+    root_files = []  # list of file dicts directly in drive root
     contents = []
     total_files = 0
     total_size = 0
     file_index = []  # list of relative file paths (relative to drive root)
 
     try:
+        # First pass: collect files directly in drive root
         for entry in os.scandir(drive_path):
-            if not entry.is_dir():
-                continue
-            if entry.name in skip_dirs:
-                continue
-
-            file_count = 0
-            folder_size = 0
-            last_modified = ""
-
-            if quick:
-                # QUICK SCAN: only count files in the top-level of each folder (no recursion)
+            if entry.is_file():
                 try:
-                    for sub in os.scandir(entry.path):
-                        if sub.is_file():
-                            try:
-                                fsize = os.path.getsize(sub.path)
-                                folder_size += fsize
-                                file_count += 1
-                                # Store relative path for quick scan too
-                                rel = os.path.join(entry.name, sub.name)
-                                file_index.append(rel)
-                            except OSError:
-                                pass
+                    fsize = os.path.getsize(entry.path)
+                    if fsize > 0:
+                        root_files.append({
+                            "name": entry.name,
+                            "type": "file",
+                            "size_bytes": fsize,
+                            "size_gb": round(fsize / (1024 ** 3), 2),
+                            "file_count": 0,
+                            "last_modified": datetime.fromtimestamp(
+                                os.path.getmtime(entry.path)
+                            ).strftime("%Y-%m-%d")
+                        })
+                        total_files += 1
+                        total_size += fsize
+                        file_index.append(entry.name)
                 except OSError:
                     pass
-            else:
-                # DEEP SCAN: full recursive walk
-                try:
-                    for root, dirs, files in os.walk(entry.path):
-                        # Compute relative path from drive root
-                        rel_dir = os.path.relpath(root, drive_path)
-                        for fname in files:
-                            fpath = os.path.join(root, fname)
-                            try:
-                                fsize = os.path.getsize(fpath)
-                                folder_size += fsize
-                                file_count += 1
-                                # Store relative path
-                                rel = os.path.join(rel_dir, fname)
-                                file_index.append(rel)
-                            except OSError:
-                                pass
-                except OSError:
-                    pass
+            elif entry.is_dir():
+                if entry.name in skip_dirs:
+                    continue
 
-            last_modified_ts = os.path.getmtime(entry.path) if os.path.exists(entry.path) else 0
-            last_modified = datetime.fromtimestamp(last_modified_ts).strftime("%Y-%m-%d")
+                file_count = 0
+                folder_size = 0
+                last_modified = ""
 
-            folder_size_gb = round(folder_size / (1024 ** 3), 2)
-            total_files += file_count
-            total_size += folder_size
+                if quick:
+                    # QUICK SCAN: only count files in the top-level of each folder (no recursion)
+                    try:
+                        for sub in os.scandir(entry.path):
+                            if sub.is_file():
+                                try:
+                                    fsize = os.path.getsize(sub.path)
+                                    folder_size += fsize
+                                    file_count += 1
+                                    # Store relative path for quick scan too
+                                    rel = os.path.join(entry.name, sub.name)
+                                    file_index.append(rel)
+                                except OSError:
+                                    pass
+                    except OSError:
+                        pass
+                else:
+                    # DEEP SCAN: full recursive walk
+                    try:
+                        for root, dirs, files in os.walk(entry.path):
+                            # Compute relative path from drive root
+                            rel_dir = os.path.relpath(root, drive_path)
+                            for fname in files:
+                                fpath = os.path.join(root, fname)
+                                try:
+                                    fsize = os.path.getsize(fpath)
+                                    folder_size += fsize
+                                    file_count += 1
+                                    # Store relative path
+                                    rel = os.path.join(rel_dir, fname)
+                                    file_index.append(rel)
+                                except OSError:
+                                    pass
+                    except OSError:
+                        pass
 
-            contents.append({
-                "name": entry.name,
-                "type": "folder",
-                "size_gb": folder_size_gb,
-                "file_count": file_count,
-                "last_modified": last_modified
-            })
+                last_modified_ts = os.path.getmtime(entry.path) if os.path.exists(entry.path) else 0
+                last_modified = datetime.fromtimestamp(last_modified_ts).strftime("%Y-%m-%d")
+
+                folder_size_gb = round(folder_size / (1024 ** 3), 2)
+                total_files += file_count
+                total_size += folder_size
+
+                contents.append({
+                    "name": entry.name,
+                    "type": "folder",
+                    "size_gb": folder_size_gb,
+                    "file_count": file_count,
+                    "last_modified": last_modified
+                })
 
     except OSError:
         pass
@@ -869,6 +908,107 @@ class ArchiveHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json(catalog["stats"])
                 return
 
+            # API: Get list of ignored duplicates (resolve keys back to readable items)
+            if path == "/api/ignored-duplicates":
+                try:
+                    ignored_list = read_ignored_duplicates()
+                    # Each entry is "filename|size_bytes"
+                    items = []
+                    for key in ignored_list:
+                        parts = key.split("|")
+                        if len(parts) == 2:
+                            fname, fsize = parts
+                            items.append({
+                                "key": key,
+                                "file_name": fname,
+                                "size_bytes": int(fsize) if fsize.isdigit() else 0,
+                            })
+                        else:
+                            items.append({"key": key, "file_name": key, "size_bytes": 0})
+                    self._send_json({"count": len(items), "items": items})
+                except Exception as e:
+                    print(f"[IGNORED-DUPS] Error: {e}")
+                    self._send_json({"error": str(e)}, 500)
+                return
+
+            # API: Find duplicate files across all drives
+            if path == "/api/duplicates":
+                try:
+                    catalog = read_catalog()
+                    drive_id_filter = query.get("drive_id", "").strip()
+                    # Group files by file_name (the file index stores paths only, no per-file size)
+                    name_map = {}
+
+                    for drive in catalog.get("drives", []):
+                        drive_id = drive.get("id", "")
+                        drive_title = drive.get("title", "")
+                        file_index = read_file_index(drive_id)
+
+                        for rel_path in file_index:
+                            name = os.path.basename(rel_path)
+                            if not name:
+                                continue
+
+                            # Use the actual file on disk to get its size (skip 0-byte files)
+                            drive_path = drive.get("path", "")
+                            full_path = os.path.join(drive_path, rel_path)
+                            try:
+                                fsize = os.path.getsize(full_path)
+                            except OSError:
+                                # If file no longer exists on disk, skip it
+                                continue
+                            if fsize == 0:
+                                continue
+
+                            key = (fsize, name)
+
+                            if key not in name_map:
+                                name_map[key] = {
+                                    "file_name": name,
+                                    "size_bytes": fsize,
+                                    "locations": [],
+                                }
+                            # Check if drive is connected (path exists on OS)
+                            drive_path_exists = os.path.exists(drive.get("path", ""))
+                            name_map[key]["locations"].append({
+                                "drive_id": drive_id,
+                                "drive_title": drive_title,
+                                "file_path": rel_path,
+                                "is_connected": drive_path_exists,
+                                "drive_path": drive.get("path", ""),
+                            })
+
+                    # Load ignored duplicates list
+                    ignored_set = set(read_ignored_duplicates())
+
+                    # Filter: only keep groups that appear in more than one location AND not ignored
+                    duplicates = []
+                    for entry in name_map.values():
+                        if len(entry["locations"]) > 1:
+                            # Check if this group is ignored
+                            key = f"{entry['file_name']}|{entry['size_bytes']}"
+                            if key in ignored_set:
+                                continue
+                            # If drive_id filter is set, only include groups where at least
+                            # one copy resides on the specified drive
+                            if drive_id_filter:
+                                has_matching_drive = any(
+                                    loc["drive_id"] == drive_id_filter
+                                    for loc in entry["locations"]
+                                )
+                                if not has_matching_drive:
+                                    continue
+                            duplicates.append(entry)
+
+                    # Sort by size descending, then by name
+                    duplicates.sort(key=lambda x: (-x["size_bytes"], x["file_name"]))
+
+                    self._send_json({"count": len(duplicates), "duplicates": duplicates})
+                except Exception as e:
+                    print(f"[DUPLICATES] Error: {e}")
+                    self._send_json({"error": str(e)}, 500)
+                return
+
             # API: Online drives
             if path == "/api/drives-online":
                 try:
@@ -926,6 +1066,141 @@ class ArchiveHandler(http.server.BaseHTTPRequestHandler):
                     self._send_json({"error": str(e)}, 500)
                 return
 
+            # API: Space Analytics — returns top 100 files & space distribution per drive
+            if path == "/api/analytics":
+                # Optional query parameter: drive_id to filter a specific drive
+                filter_drive_id = query.get("drive_id", "")
+
+                catalog = read_catalog()
+                all_files = []
+                for drive in catalog.get("drives", []):
+                    drive_id = drive.get("id", "")
+                    drive_label = drive.get("title", drive_id)
+                    drive_path = drive.get("path", "")
+                    # Skip if filtering to a specific drive
+                    if filter_drive_id and filter_drive_id != "all" and filter_drive_id != drive_id:
+                        continue
+                    # Skip drives that are not connected (offline)
+                    if not drive_path or not os.path.exists(drive_path):
+                        continue
+                    # Read file index for this drive (list of relative paths as strings)
+                    file_index = read_file_index(drive_id)
+                    
+                    # FALLBACK: if file_index is empty (no deep scan done), scan drive root directly
+                    # This ensures root-level files (e.g. I:\Data Targoman.7z) appear in top_files
+                    if not file_index:
+                        try:
+                            for entry in os.scandir(drive_path):
+                                if entry.is_file():
+                                    try:
+                                        fsize = os.path.getsize(entry.path)
+                                        if fsize > 0:
+                                            all_files.append({
+                                                "file_name": entry.name,
+                                                "file_path": entry.name,
+                                                "size_bytes": fsize,
+                                                "drive_id": drive_id,
+                                                "drive_label": drive_label
+                                            })
+                                    except OSError:
+                                        pass
+                        except OSError:
+                            pass
+                    else:
+                        for rel_path in file_index:
+                            if isinstance(rel_path, str) and rel_path:
+                                full_path = os.path.join(drive_path, rel_path)
+                                try:
+                                    # Stat the actual file on disk to get its size
+                                    size_bytes = os.path.getsize(full_path)
+                                    if size_bytes > 0:
+                                        all_files.append({
+                                            "file_name": os.path.basename(rel_path),
+                                            "file_path": rel_path,
+                                            "size_bytes": size_bytes,
+                                            "drive_id": drive_id,
+                                            "drive_label": drive_label
+                                        })
+                                except OSError:
+                                    # File no longer exists on disk, skip it
+                                    pass
+
+                # Sort by size_bytes descending, take top 100
+                all_files.sort(key=lambda x: x["size_bytes"], reverse=True)
+                top_files = all_files[:100]
+
+                # Space distribution: top-level folders + root files per drive
+                space_distribution = []
+                for drive in catalog.get("drives", []):
+                    drive_id = drive.get("id", "")
+                    if filter_drive_id and filter_drive_id != "all" and filter_drive_id != drive_id:
+                        continue
+                    drive_label = drive.get("title", drive_id)
+                    drive_path = drive.get("path", "")
+                    contents = drive.get("contents", [])
+                    
+                    # Include folders from catalog contents
+                    for folder in contents:
+                        folder_name = folder.get("name", "?")
+                        size_gb = folder.get("size_gb", 0)
+                        file_count = folder.get("file_count", 0)
+                        space_distribution.append({
+                            "drive_id": drive_id,
+                            "drive_label": drive_label,
+                            "folder_name": folder_name,
+                            "size_gb": size_gb,
+                            "file_count": file_count,
+                            "type": folder.get("type", "folder")
+                        })
+                    
+                    # Also scan drive root for any files not in contents (e.g. root-level files)
+                    # This handles drives scanned with older code that only stored folders
+                    if drive_path and os.path.exists(drive_path):
+                        # Check if root files already in contents (by looking for type=='file' entries)
+                        has_root_files = any(
+                            f.get("type") == "file" for f in contents
+                        )
+                        if not has_root_files:
+                            try:
+                                for entry in os.scandir(drive_path):
+                                    if entry.is_file():
+                                        try:
+                                            fsize = os.path.getsize(entry.path)
+                                            if fsize > 0:
+                                                space_distribution.append({
+                                                    "drive_id": drive_id,
+                                                    "drive_label": drive_label,
+                                                    "folder_name": entry.name,
+                                                    "size_gb": round(fsize / (1024 ** 3), 2),
+                                                    "file_count": 1,
+                                                    "type": "file"
+                                                })
+                                        except OSError:
+                                            pass
+                            except OSError:
+                                pass
+
+                # Also add per-drive totals for the chart
+                drive_totals = []
+                for drive in catalog.get("drives", []):
+                    drive_id = drive.get("id", "")
+                    if filter_drive_id and filter_drive_id != "all" and filter_drive_id != drive_id:
+                        continue
+                    drive_label = drive.get("title", drive_id)
+                    used_gb = drive.get("used_space_gb", 0)
+                    drive_totals.append({
+                        "drive_id": drive_id,
+                        "drive_label": drive_label,
+                        "used_gb": used_gb
+                    })
+
+                self._send_json({
+                    "top_files": top_files,
+                    "space_distribution": space_distribution,
+                    "drive_totals": drive_totals
+                })
+                return
+
             # 404
             self._send_json({"error": "Not found"}, 404)
 
@@ -933,6 +1208,8 @@ class ArchiveHandler(http.server.BaseHTTPRequestHandler):
             pass
         except Exception as e:
             print(f"[ERROR] GET {self.path}: {e}")
+            import traceback
+            traceback.print_exc()
             try:
                 self._send_json({"error": str(e)}, 500)
             except Exception:
@@ -1045,6 +1322,62 @@ class ArchiveHandler(http.server.BaseHTTPRequestHandler):
                     "failed": failed,
                     "total": rebuilt + failed
                 })
+                return
+
+            # API: Open file/folder in Explorer (for duplicates panel)
+            if path == "/api/open-folder":
+                body = self._read_body()
+                data = json.loads(body)
+                drive_id = data.get("drive_id", "")
+                file_path = data.get("file_path", "")
+                if not drive_id or not file_path:
+                    self._send_json({"error": "drive_id and file_path are required"}, 400)
+                    return
+                catalog = read_catalog()
+                drive = None
+                for d in catalog.get("drives", []):
+                    if d["id"] == drive_id:
+                        drive = d
+                        break
+                if not drive:
+                    self._send_json({"error": "Drive not found"}, 404)
+                    return
+                drive_path = drive.get("path", "")
+                if not drive_path:
+                    self._send_json({"error": "Drive path not set"}, 400)
+                    return
+                target = os.path.join(drive_path, file_path)
+                target = os.path.normpath(target)
+                drive_norm = os.path.normpath(drive_path.rstrip("\\"))
+                if not target.startswith(drive_norm):
+                    self._send_json({"error": "Access denied"}, 403)
+                    return
+                folder_path = os.path.dirname(target) if os.path.isfile(target) else target
+                if not os.path.exists(folder_path):
+                    self._send_json({"error": "Folder not found on disk"}, 404)
+                    return
+                try:
+                    os.startfile(os.path.normpath(folder_path))
+                    self._send_json({"success": True, "folder": folder_path})
+                except Exception as e:
+                    self._send_json({"error": f"Could not open folder: {e}"}, 500)
+                return
+
+            # API: Ignore a duplicate group (add to ignored list)
+            if path == "/api/ignore-duplicate":
+                body = self._read_body()
+                data = json.loads(body)
+                file_name = data.get("file_name", "")
+                size_bytes = data.get("size_bytes", 0)
+                if not file_name or not size_bytes:
+                    self._send_json({"error": "file_name and size_bytes are required"}, 400)
+                    return
+                key = f"{file_name}|{size_bytes}"
+                ignored_list = read_ignored_duplicates()
+                if key not in ignored_list:
+                    ignored_list.append(key)
+                    write_ignored_duplicates(ignored_list)
+                self._send_json({"success": True, "ignored": key})
                 return
 
             # API: Re-scan a single existing drive (deep scan, replaces old entry)
@@ -1206,6 +1539,113 @@ class ArchiveHandler(http.server.BaseHTTPRequestHandler):
                     self._send_json({"success": True})
                 else:
                     self._send_json({"error": "Drive not found"}, 404)
+                return
+
+            # API: Delete a specific file from a drive's index
+            if path == "/api/delete-file":
+                body = self._read_body()
+                data = json.loads(body)
+                drive_id = data.get("drive_id", "")
+                file_path = data.get("file_path", "")
+
+                if not drive_id or not file_path:
+                    self._send_json({"error": "drive_id and file_path are required"}, 400)
+                    return
+
+                catalog = read_catalog()
+                drive = None
+                for d in catalog.get("drives", []):
+                    if d["id"] == drive_id:
+                        drive = d
+                        break
+
+                if not drive:
+                    self._send_json({"error": "Drive not found"}, 404)
+                    return
+
+                drive_path = drive.get("path", "")
+                if not drive_path:
+                    self._send_json({"error": "Drive path not set"}, 400)
+                    return
+
+                # Build full path
+                full_path = os.path.join(drive_path, file_path)
+                full_path = os.path.normpath(full_path)
+                drive_norm = os.path.normpath(drive_path.rstrip("\\"))
+
+                # Security: prevent path traversal
+                if not full_path.startswith(drive_norm):
+                    self._send_json({"error": "Access denied"}, 403)
+                    return
+
+                # Delete the file from disk
+                if not os.path.exists(full_path):
+                    self._send_json({"error": "File not found on disk"}, 404)
+                    return
+
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    self._send_json({"error": f"Could not delete file: {e}"}, 500)
+                    return
+
+                # Remove from file index
+                file_index = read_file_index(drive_id)
+                new_index = []
+                removed = False
+                for entry in file_index:
+                    if isinstance(entry, str):
+                        if entry != file_path:
+                            new_index.append(entry)
+                        else:
+                            removed = True
+                    elif isinstance(entry, dict):
+                        if entry.get("path", "") != file_path:
+                            new_index.append(entry)
+                        else:
+                            removed = True
+                    else:
+                        new_index.append(entry)
+
+                if removed:
+                    write_file_index(drive_id, new_index)
+                    # Update catalog file counts and total files
+                    drive["total_files"] = max(0, drive.get("total_files", 0) - 1)
+                    file_size_bytes = 0
+                    for entry in file_index:
+                        if isinstance(entry, dict) and entry.get("path", "") == file_path:
+                            file_size_bytes = entry.get("size", 0)
+                            break
+                    drive["used_space_gb"] = max(0, round(drive.get("used_space_gb", 0) - file_size_bytes / (1024**3), 2))
+                    write_catalog(catalog)
+
+                self._send_json({"success": True, "removed": removed})
+                return
+
+            # API: Remove an entry from ignored duplicates list (restore)
+            if path == "/api/ignore-duplicate":
+                parsed_qs = urllib.parse.urlparse(self.path)
+                qs = dict(urllib.parse.parse_qsl(parsed_qs.query))
+                key = qs.get("key", "")
+                if not key:
+                    # Try reading body for JSON
+                    try:
+                        body = self._read_body()
+                        data = json.loads(body)
+                        key = data.get("key", "")
+                    except Exception:
+                        pass
+                if not key:
+                    self._send_json({"error": "key parameter is required"}, 400)
+                    return
+
+                ignored_list = read_ignored_duplicates()
+                if key in ignored_list:
+                    ignored_list.remove(key)
+                    write_ignored_duplicates(ignored_list)
+                    self._send_json({"success": True, "restored": key})
+                else:
+                    self._send_json({"error": "Key not found in ignored list"}, 404)
                 return
 
             # 404

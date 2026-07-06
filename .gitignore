@@ -7,6 +7,7 @@ catalog.json
 labels/*.txt
 file_index/*.json
 folder_index/*.json
+ignored_duplicates.json
 
 # --- Python ---
 __pycache__/
